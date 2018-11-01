@@ -3,46 +3,73 @@
 #
 # editor Nano
 # developer sunjangyo12@gamil.com
-#
-# ERROR vclass ( cari cfr.jar)
-# ERROR adb (cari adb size lebih 1MB)
+# MEMBUAT KEYSTORE SIGN APK :
+#  - keytool -genkeypair -validity 365 -keystore namakey.keystore -keyalg RSA -keysize 2048
+#  - jarsigner -verbose -keystore namakey.keystore -storepass mypassword -keypass mypassword -digestalg SHA1 -sigalg MD5withRSA apk_path nama_csa
 
 comand="$@"
 IP=10.42.0.1
 RANG_IP=$(echo $IP | cut -d "." -f 1,2,3);
 DUMP_PATH="/var/www/shunpc.com"
 allib="/usr/bin/allib"
-echo ".... $comand"
+aktif=`pwd`
 echo ""
+echo "##############  $comand  #############"
+echo "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT"
+echo ""
+
+function spiner
+{
+	local pid=$!
+	local delay=0.15
+	local spinstr='|/-\'
+		while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
+			local temp=${spinstr#?}
+			printf " [%c]  " "$spinstr"
+			local spinstr=$temp${spinstr%"$temp"}
+			sleep $delay
+			printf "\b\b\b\b\b\b"
+		done
+	printf "    \b\b\b\b"
+}
 
 function android_build()
 {
-	ls
-	read -p "[+] Nama folder project: " nabuild
-	export PROJ=/home/sunjangyo12/oprek/android/$nabuild
-	export PATHPROJ=/usr/bin/allib/build-tools
-	cd $PATHPROJ
+	export PROJ=/home/sunjangyo12/oprek/android/$nbapk
+        export LIBPROJ=/usr/bin/allib/build-tools
 
-	echo  "Buat file R.java ..."
-	./aapt package -f -m -J $PROJ/src -M $PROJ/AndroidManifest.xml -S $PROJ/res -I /usr/bin/allib/android.jar
+	if [ "$nbapk" == "" ]; then
+		echo -e "\e[1;31m[!] Nama project dan paket kosong"
+		exit
+	fi
+	cd $LIBPROJ
+	echo  "[+] Buat file R.java ..."
+	./aapt package -f -m -J $PROJ/java -M $PROJ/AndroidManifest.xml -S $PROJ/res -I $LIBPROJ/android.jar
 	cd $PROJ
-	read -p "[+] Nama paket ex:com/oke/pesawat : " pabuild
 
 	echo ""
-	echo -n "  Compiling -->> "
-	erjavac=`javac -d obj -classpath src -bootclasspath /usr/bin/allib/android.jar src/$pabuild/*.java`
-	if [ "$erjavac" = "" ]; then
-		cd $PATHPROJ
-		echo -n "Dexing -->> "
-		./dx --dex --output=$PROJ/bin/classes.dex $PROJ/obj
-		echo " Build apk -->> "
-		./aapt package -f -m -F $PROJ/bin/out_mentah.apk -M $PROJ/AndroidManifest.xml -S $PROJ/res -I /usr/bin/allib/android.jar
+	echo "########## TUNGGU! ############"
+	echo ""
+	echo "Compiling-->>"
+	javac -d obj -classpath src -bootclasspath $LIBPROJ/android.jar java/$pbapk/*.java
+
+	read -p "[+] Lanjut y/n : " LPROJ
+	if [ "$LPROJ" = "y" ]; then
+		cd $LIBPROJ
+		echo "Dexing -->> "
+		./dx --dex --output=$PROJ/bin/classes.dex $PROJ/obj >/dev/null
+		echo "Build apk -->> "
+		./aapt package -f -m -F $PROJ/bin/out.apk -M $PROJ/AndroidManifest.xml -S $PROJ/res -I $LIBPROJ/android.jar  >/dev/null
 		cp $PROJ/bin/classes.dex .
-		./aapt add $PROJ/bin/out_mentah.apk classes.dex
-		./aapt list $PROJ/bin/out_mentah.apk
-		echo " Signing apk -->> "
-		#java -jar $allib/sign/signapk.jar $allib/sign/certificate.pem  $allib/sign/key.pk8 out_mentah.apk "out.apk"
-		#echo -n " SUKSES"
+		./aapt add $PROJ/bin/out.apk classes.dex  >/dev/null
+		./aapt list $PROJ/bin/out.apk  >/dev/null
+		echo  "Signing apk -->> "
+		jarsigner -verbose -keystore $allib/sign/shun.keystore -storepass "#pesawat" -keypass "#pesawat" -digestalg SHA1 -sigalg MD5withRSA $PROJ/bin/out.apk mykey  >/dev/null
+		echo ""
+		echo "###### SUKSES ######"
+		echo ""
+		echo "path   : $PROJ/bin/out.apk"
+		echo "install: adb install $PROJ/bin/out.apk"
 	else
 		echo "$erjavac"
 	fi
@@ -50,42 +77,45 @@ function android_build()
 
 function android_pull_apk()
 {
+	cd $allib/build-tools
 	if [ -z "$1" ]; then
 		echo "Anda harus lulus paket untuk fungsi ini"
 		echo "Ex: android_pull_apk \"com.android.contacts\""
 		return 1
 	fi
-	if [ -z "$(adb shell pm list packages | grep $1)" ]; then
+	if [ -z "$(./adb shell pm list packages | grep $1)" ]; then
 		echo "invalid packet list!"
 		return 1
 	fi
-	apk_path="`adb shell pm path $1 | sed -e 's/package://g' | tr '\n' ' ' | tr -d '[:space:]'`"
+	apk_path="`./adb shell pm path $1 | sed -e 's/package://g' | tr '\n' ' ' | tr -d '[:space:]'`"
 	apk_name="`basename ${apk_path} | tr '\n' ' ' | tr -d '[:space:]'`"
 	destination="/home/sunjangyo12/Dokumen/android/apk/"
-	adb pull ${apk_path} ${destination}
+	./adb pull ${apk_path} ${destination}
 	echo -e "\nAPK simpan di $destination/$paket"
 	cd "$destination/"
 	mv $apk_name $paket".apk"
 	chmod 777 $paket".apk"
 }
 function data_apk(){
+	pathdapk=$allib/build-tools
+	cd $pathdapk
 	if [ -z "$1" ]; then
 		echo "Anda harus lulus paket untuk fungsi ini"
 		echo "Ex: android_pull_apk \"com.android.contacts\""
 		return 1
 	fi
-	if [ -z "$(adb shell pm list packages | grep $1)" ]; then
+	if [ -z "$(./adb shell pm list packages | grep $1)" ]; then
 		echo "invalid packet list!"
 		return 1
 	fi
-	apk_path="`adb shell pm path $1 | sed -e 's/package://g' | tr '\n' ' ' | tr -d '[:space:]'`"
+	apk_path="`./adb shell pm path $1 | sed -e 's/package://g' | tr '\n' ' ' | tr -d '[:space:]'`"
 	apk_name="`basename ${apk_path} | tr '\n' ' ' | tr -d '[:space:]'`"
-	destination="/home/sunjangyo12/Dokumen/android/cache/"
+	destination="/home/sunjangyo12/Dokumen/android/cache"
 
 	read -p "backup atau kembalikan cache:  b/k : " rest
 	if [ "$rest" = "b" ]; then
-		cd $destination
-		adb backup -f $paket".ab" $paket
+		./adb backup -f $paket".ab" $paket
+		mv "$pathdapk/$paket".ab $destination
 		echo -e "\nCache APK tersimpan "
 	fi
 	if [ "$rest" = "k" ]; then
@@ -93,7 +123,7 @@ function data_apk(){
 		if [ "$alert" = "y" ]; then
 			ls -l $destination
 			read -p "Masukan ab file: " abf
-			adb restore $destination$abf
+			./adb restore "$destination/$abf"
 		fi
 	fi
 }
@@ -101,6 +131,8 @@ function data_apk(){
 function apk_to_class() {
 	read -p "-->> Nama apk [tanpa tanda petik biarkan spasi] : " dnapk
 	diratc="/home/sunjangyo12/oprek/smali/"
+	vclass=$allib/vclasslib
+
 	control=`ls $diratc | grep "$dnapk"`
 	read -p "Apakah--[ $dnapk ]-- y/n: " tesdnapk
 
@@ -135,12 +167,12 @@ function apk_to_class() {
 			if [ $jcontrol = "y" ]; then
 				if [ ${at[i]} = "inflating" ]; then
 					jsplit=($(echo "${at[i+1]}" | tr '.' '\n'))
-					echo "$jsplit".java
-					vclass "${at[i+1]}" > $jsplit".java"
+					echo "[+] $jsplit".java
+					java -jar $vclass/lib1.jar "${at[i+1]}" > $jsplit".java"
 				elif [ ${at[i]} = "creating" ]; then
 					folder="${at[i+1]}"
 					echo ""
-					echo "------>>>> proses di folder: $folder"
+					echo "[=] proses di folder: $folder"
 				fi
 			fi
 		done
@@ -203,9 +235,10 @@ elif [ "$comand" = "file_gui" ]; then
 elif [ "$comand" = "apkkey" ]; then
 	echo "sign      : biasanya setelah edit smali Sign diperlukan"
 	echo "backup    : pastikan usb tersambung > wizard"
-	echo "decompile : Masukan nama apk dan otomatis tersimpan di ~/hack/smali/nama_apk"
-	echo "compile   : pastikan ada di folder yang ada file apktool.yml > wizard"
-	echo "build     : build project android > wizard"
+	echo "decompile : Masukan nama apk dan otomatis tersimpan di ~/hack/smali"
+	echo "compile   : pastikan ada di folder yang ada file apktool.yml >wizard"
+	echo "build     : buat project android > wizard"
+	echo "vclass    : class ke java > wizard"
 	read -p "-->> Perintah: " napk
 
 	if [ "$napk" = "decompile" ]; then
@@ -216,12 +249,51 @@ elif [ "$comand" = "apkkey" ]; then
 			read -p "[+] Nama jar/apk: " njdapk
 			bash $allib/dex2jar/d2j-dex2jar.sh "$njdapk"
 		fi
+	elif [ "$napk" = "vclass" ]; then
+		vclass=$allib/vclasslib
+		read -p "[+] Nama class: " vcapk
+		java -jar $vclass/lib1.jar "$vcapk" > $vcapk".java"
+		cat $vcapk".java"
 	elif [ "$napk" = "build" ]; then
-		android_build
+		read -p "[+] compile/baru? c/b : " bapk
+		lagi="y"
+		while [ "$lagi" = "y" ]; do
+			if [ "$bapk" = "b" ]; then
+				ls; read -p "[+] Nama project NOT STRING : " nbapk
+				if [ "`find $nbapk/AndroidManifest.xml`" != "" ]; then
+					cat "$nbapk/"AndroidManifest.xml
+				fi
+			        read -p "[+] Nama paket (com/oke)    : " pbapk
+				read -p "[+] libs ENTER if NOTING    : " lbapk
+				mkdir $nbapk; cd $nbapk
+				mkdir -p java/$pbapk
+				mkdir obj; mkdir bin; mkdir -p res/layout
+				mkdir res/values; mkdir res/drawable
+				if [ "$lbapk" != "" ]; then
+					mkdir libs
+				fi
+				defbapk="$allib/build-tools/main"
+				cat $defbapk/AndroidManifest.xml > AndroidManifest.xml
+				cat $defbapk/MainActivity.java > java/$pbapk/MainActivity.java
+				cat $defbapk/strings.xml > res/values/strings.xml
+				cat $defbapk/main.xml > res/layout/main.xml
+				cat $defbapk/styles.xml > res/values/styles.xml
+				echo "folder dibuat"
+			else
+				ls; read -p "[+] Nama project NOT STRING : " nbapk
+				if [ "`find $nbapk/AndroidManifest.xml`" != "" ]; then
+					cat "$nbapk/"AndroidManifest.xml
+				fi
+			        read -p "[+] Nama paket (com/oke)    : " pbapk
+				android_build
+			fi
+			cd "$aktif"
+			read -p "[+] Lagi? y/n : " lagi
+		done
 	elif [ "$napk" = "sign" ]; then
 		read -p "--->> Masukan nama apk: " snapk
-		echo "[+] sign apk ...."
-		java -jar $allib/sign/signapk.jar $allib/sign/certificate.pem  $allib/sign/key.pk8 $ncapk "out.apk"
+		echo "[+] signing ..."
+		jarsigner -verbose -keystore $allib/sign/shun.keystore -storepass "#pesawat" -keypass "#pesawat" -digestalg SHA1 -sigalg MD5withRSA $snapk mykey
                 ls
 	elif [ "$napk" = "compile" ]; then
 		apktool b
@@ -236,10 +308,11 @@ elif [ "$comand" = "apkkey" ]; then
 		while [ $lagi = "y" ]; do
 			read -p "-->> Masukan nama/ENTER semua: " npaket
 			nrpaket=""
+			cd $allib/build-tools
 			if [ "$npaket" = "" ]; then
-				nrpaket=`adb shell pm list packages`
+				nrpaket=`./adb shell pm list packages`
 			else
-				nrpaket=`adb shell pm list packages | grep "$npaket"`
+				nrpaket=`./adb shell pm list packages | grep "$npaket"`
 			fi
 			nspaket=($(echo "$nrpaket" | tr ':' '\n'))
 			for i in "${!nspaket[@]}"; do
@@ -318,9 +391,9 @@ elif [ "$comand" = "edit" ]; then
 	read -p "[+] masukan nama code ENTER jika tidak ada : " ed
 	if [ "$ed" != "" ]; then
 		edir=`pwd`
-		./sublime_text "$edir/$ed" &
+		xterm ./sublime_text "$edir/$ed" &
 	else
-		./sublime_text &
+		xterm ./sublime_text &
 	fi
 elif [ "$comand" = "web" ]; then
 	echo "ENTER pencarian langsung bing.com"
@@ -349,8 +422,9 @@ elif [ "$comand" = "web" ]; then
 		firefox "https://http-www-bing-com.0.freebasics.com/search?iorg_service_id_internal=803478443041409%3BAfrEX0ng8fF-69Ni&iorgbsid=AZwOf5p9ZGHdo4ma-_4xLROJiPP57wR4JxMMMfZYMk2RHTXt0k_suZhZX4ELlv0Xo8d0A99ibKz2Zk2OYsINpLd4&q=$cari&go=Search&qs=ds&form=QBRE&pc=FBIO" &
 	fi
 else
-	echo "command salah"
-	echo " ......... .... ........"
+	echo "########## INPUT SALAH! ##########"
+	echo "##########    v.1.0     ##########"
+	echo ""
 	echo "--> al web"
 	echo "--> al file_gui"
 	echo "--> al file_zip"

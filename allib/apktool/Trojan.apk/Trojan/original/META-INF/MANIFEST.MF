@@ -1,0 +1,15 @@
+Manifest-Version: 1.0
+Created-By: 1.8.0_181 (Oracle Corporation)
+
+Name: AndroidManifest.xml
+SHA1-Digest: j1wABX08p5VjkE+/Yhl+Ptb0Gr4=
+
+Name: res/layout/main.xml
+SHA1-Digest: Pevb14TA8LmY6cZGB/BWMiS3f9g=
+
+Name: resources.arsc
+SHA1-Digest: F1VOBl/jYALvp0Wzww3Rlcp2/1I=
+
+Name: classes.dex
+SHA1-Digest: 9SC0ljSoYdqjO9ZqnBB4LfBNdvY=
+

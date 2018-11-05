@@ -1,0 +1,21 @@
+!!brut.androlib.meta.MetaInfo
+apkFileName: Trojan.apk
+compressionType: false
+doNotCompress:
+- arsc
+isFrameworkApk: false
+packageInfo:
+  forcedPackageId: '127'
+  renameManifestPackage: null
+sdkInfo: null
+sharedLibrary: false
+sparseResources: true
+unknownFiles: {}
+usesFramework:
+  ids:
+  - 1
+  tag: null
+version: 2.3.4-dirty
+versionInfo:
+  versionCode: null
+  versionName: '1.1'
